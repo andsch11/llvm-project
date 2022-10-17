@@ -62,12 +62,33 @@ public:
     // find.
     // At this point, you can examine the match, and do whatever you want,
     // including replacing the matched text with other text
-    auto *D = Result.Nodes.getNodeAs<NamedDecl>("decl");
-    assert(D);
-    // Use AtomicChange to get a key.
-    if (D->getBeginLoc().isValid()) {
-      AtomicChange Change(*Result.SourceManager, D->getBeginLoc());
-      Context.reportResult(Change.getKey(), D->getQualifiedNameAsString());
+    llvm::outs() << ".";
+    {
+      auto *namedDecl = Result.Nodes.getNodeAs<NamedDecl>("decl");
+      assert(namedDecl);
+
+      if (namedDecl->getBeginLoc().isValid()) {
+        llvm::outs() << "QN:" << namedDecl->getQualifiedNameAsString()
+                     << " DN:" << namedDecl->getDeclName()
+                     << " ID:" << namedDecl->getIdentifier()
+                     << " NA:" << namedDecl->getNameAsString() << "\n";
+      }
+    }
+    {
+      // https://clang.llvm.org/doxygen/classclang_1_1CXXMethodDecl.html
+      auto *cxxMethodDecl = Result.Nodes.getNodeAs<CXXMethodDecl>("decl");
+      assert(cxxMethodDecl);
+
+      if (cxxMethodDecl->getBeginLoc().isValid()) {
+        //llvm::outs() << "SLOC:" << cxxMethodDecl->get << "\n";
+
+        // https://clang.llvm.org/doxygen/classclang_1_1ParmVarDecl.html
+        llvm::outs() << "  params: ";
+        for (auto &p : cxxMethodDecl->parameters()) {
+          llvm::outs() << p->getOriginalType().getAsString() << " : ";
+        }
+        llvm::outs() << "\n";
+      }
     }
   }
 
@@ -106,9 +127,11 @@ int main(int argc, const char **argv) {
   // want to match against. You are not limited to just one matcher!
   //
   // This is a sample matcher:
-  Finder.addMatcher(
-      namedDecl(cxxRecordDecl(), isExpansionInMainFile()).bind("decl"),
-      &Callback);
+  // Finder.addMatcher(
+  //    namedDecl(cxxRecordDecl(), isExpansionInMainFile()).bind("decl"),
+  //    &Callback);
+
+  Finder.addMatcher(namedDecl(functionDecl()).bind("decl"), &Callback);
 
   auto Err = Executor->get()->execute(newFrontendActionFactory(&Finder));
   if (Err) {
