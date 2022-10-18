@@ -20,6 +20,13 @@
 - Guide from Microsoft
   - https://devblogs.microsoft.com/cppblog/exploring-clang-tooling-part-2-examining-the-clang-ast-with-clang-query/
 
+## AST with CLANG dump
+cd C:\temp\00_Coding\github_andsch_llvm-project\build\Debug\bin
+
+clang -Xclang -ast-dump "..\..\..\_sush\demo.hpp"
+
+
+## BUILD
 
 
 cmake --help

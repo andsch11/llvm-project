@@ -47,10 +47,17 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Signals.h"
 
+#include <cstring>
+
 using namespace clang;
 using namespace clang::ast_matchers;
 using namespace clang::tooling;
 using namespace llvm;
+
+namespace sush {
+std::vector<clang::ParmVarDecl *> params;
+std::vector<clang::CXXMethodDecl *> methods;
+} // namespace sush
 
 namespace {
 class ToolTemplateCallback : public MatchFinder::MatchCallback {
@@ -65,10 +72,9 @@ public:
     llvm::outs() << ".";
     {
       auto *namedDecl = Result.Nodes.getNodeAs<NamedDecl>("decl");
-      assert(namedDecl);
 
-      if (namedDecl->getBeginLoc().isValid()) {
-        llvm::outs() << "QN:" << namedDecl->getQualifiedNameAsString()
+      if (namedDecl && namedDecl->getBeginLoc().isValid()) {
+        llvm::outs() << "namedDecl QN:" << namedDecl->getQualifiedNameAsString()
                      << " DN:" << namedDecl->getDeclName()
                      << " ID:" << namedDecl->getIdentifier()
                      << " NA:" << namedDecl->getNameAsString() << "\n";
@@ -77,10 +83,9 @@ public:
     {
       // https://clang.llvm.org/doxygen/classclang_1_1CXXMethodDecl.html
       auto *cxxMethodDecl = Result.Nodes.getNodeAs<CXXMethodDecl>("decl");
-      assert(cxxMethodDecl);
 
-      if (cxxMethodDecl->getBeginLoc().isValid()) {
-        //llvm::outs() << "SLOC:" << cxxMethodDecl->get << "\n";
+      if (cxxMethodDecl && cxxMethodDecl->getBeginLoc().isValid()) {
+        // llvm::outs() << "SLOC:" << cxxMethodDecl->get << "\n";
 
         // https://clang.llvm.org/doxygen/classclang_1_1ParmVarDecl.html
         llvm::outs() << "  params: ";
@@ -88,6 +93,19 @@ public:
           llvm::outs() << p->getOriginalType().getAsString() << " : ";
         }
         llvm::outs() << "\n";
+      }
+
+      {
+        // https://clang.llvm.org/doxygen/classclang_1_1CXXRecordDecl.html
+        auto *cxxRecordDecl = Result.Nodes.getNodeAs<CXXRecordDecl>("decl");
+
+        if (cxxRecordDecl && cxxRecordDecl->getBeginLoc().isValid()) {
+          llvm::outs() << "  cxxRecordDecl: "
+                       << cxxRecordDecl->getNameAsString() << "\n";
+          //for (auto & attr : cxxRecordDecl->getAttrs()) {
+          //    attr->get
+          //}
+        }
       }
     }
   }
@@ -131,7 +149,9 @@ int main(int argc, const char **argv) {
   //    namedDecl(cxxRecordDecl(), isExpansionInMainFile()).bind("decl"),
   //    &Callback);
 
-  Finder.addMatcher(namedDecl(functionDecl()).bind("decl"), &Callback);
+  // Finder.addMatcher(cxxRecordDecl().bind("decl"), &Callback);
+  Finder.addMatcher(cxxRecordDecl(decl().bind("decl"), hasAttr(attr::Annotate)),
+                    &Callback);
 
   auto Err = Executor->get()->execute(newFrontendActionFactory(&Finder));
   if (Err) {
