@@ -1,0 +1,42 @@
+---
+returnValues:
+  - name:            NoSuchCommand
+    value:           -257
+  - name:            ServiceNotAvailable
+    value:           -256
+  - name:            Success
+    value:           0
+types:           []
+functions:
+  - id:              InstrumentAPI_Controller_Illumination_enable
+    code:            0x1B109
+    return:
+      type:
+        kind:            builtin
+        id:              void
+      fullyQualifiedType: void
+      decayedType:     void
+    parameters:
+      - name:            on
+        direction:       in
+        type:
+          kind:            builtin
+          id:              bool
+        fullyQualifiedType: bool
+        decayedType:     bool
+    doc:             ''
+    tags:
+      - ForwardOnMaster
+    kind:            member
+    fullyQualifiedName: 'ControllerLed::enable'
+    file:            demo.hpp
+    line:            17
+    noexcept:        false
+    instance:
+      getter:          'ControllerLed::m_fremSelf.load()'
+      pointer:         true
+    signature:       'void ControllerLed::enable(bool)'
+sockets:         []
+configurations:  []
+errors:          []
+...

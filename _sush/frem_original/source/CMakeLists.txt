@@ -1,0 +1,44 @@
+
+add_fremgen_executable(
+  NAME
+    FremGen
+  SOURCES
+    AstConsumer.cpp
+    AstVisitor.cpp
+    #${CMAKE_CURRENT_BINARY_DIR}/EmbeddedData.cpp
+    #${EMBEDDED_FILES}
+    FremGen.cpp
+    ParseResult.cpp
+    TypeRegistry.cpp
+  DEPENDENCIES
+    City
+    clangAST
+    clangAnalysis
+    clangBasic
+    clangDriver
+    clangEdit
+    clangFrontend
+    clangFrontendTool
+    clangLex
+    clangParse
+    clangSema
+    clangEdit
+    clangASTMatchers
+    clangRewrite
+    clangRewriteFrontend
+    clangStaticAnalyzerFrontend
+    clangStaticAnalyzerCheckers
+    clangStaticAnalyzerCore
+    clangSerialization
+    clangToolingCore
+    clangTooling
+    ${llvm_libs}
+)
+
+add_fremgen_executable(
+  NAME
+    HeaderPacker
+  SOURCES
+    HeaderPacker.cpp
+  DEPENDENCIES
+)
