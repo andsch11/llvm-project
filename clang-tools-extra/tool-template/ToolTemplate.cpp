@@ -69,43 +69,69 @@ public:
     // find.
     // At this point, you can examine the match, and do whatever you want,
     // including replacing the matched text with other text
-    llvm::outs() << ".";
-    {
-      auto *namedDecl = Result.Nodes.getNodeAs<NamedDecl>("decl");
 
-      if (namedDecl && namedDecl->getBeginLoc().isValid()) {
-        llvm::outs() << "namedDecl QN:" << namedDecl->getQualifiedNameAsString()
-                     << " DN:" << namedDecl->getDeclName()
-                     << " ID:" << namedDecl->getIdentifier()
-                     << " NA:" << namedDecl->getNameAsString() << "\n";
+    // llvm::outs() << "----------------------\n";
+    {
+        // auto *namedDecl = Result.Nodes.getNodeAs<NamedDecl>("decl");
+
+        // if (namedDecl && namedDecl->getBeginLoc().isValid()) {
+        //  llvm::outs() << "namedDecl QN:" <<
+        //  namedDecl->getQualifiedNameAsString()
+        //               << " DN:" << namedDecl->getDeclName()
+        //               << " ID:" << namedDecl->getIdentifier()
+        //               << " NA:" << namedDecl->getNameAsString() << "\n";
+        //  VisitNamedDevl_Attrs(namedDecl, Result.SourceManager);
+        //}
+    } {
+
+      if (auto *cxxMethodDecl = Result.Nodes.getNodeAs<CXXMethodDecl>("decl");
+          cxxMethodDecl && cxxMethodDecl->getBeginLoc().isValid()) {
+        visitMethod(cxxMethodDecl);
       }
+
+      //{
+      //  // https://clang.llvm.org/doxygen/classclang_1_1CXXRecordDecl.html
+      //  auto *cxxRecordDecl = Result.Nodes.getNodeAs<CXXRecordDecl>("decl");
+
+      //  if (cxxRecordDecl && cxxRecordDecl->getBeginLoc().isValid()) {
+      //    llvm::outs() << "  cxxRecordDecl: "
+      //                 << cxxRecordDecl->getNameAsString() << "\n";
+      //    // for (auto & attr : cxxRecordDecl->getAttrs()) {
+      //    //    attr->get
+      //    //}
+      //  }
+      //}
     }
-    {
-      // https://clang.llvm.org/doxygen/classclang_1_1CXXMethodDecl.html
-      auto *cxxMethodDecl = Result.Nodes.getNodeAs<CXXMethodDecl>("decl");
+  }
 
-      if (cxxMethodDecl && cxxMethodDecl->getBeginLoc().isValid()) {
-        // llvm::outs() << "SLOC:" << cxxMethodDecl->get << "\n";
+  void visitMethod(const clang::CXXMethodDecl *cxxMethodDecl) {
+    // https://clang.llvm.org/doxygen/classclang_1_1CXXMethodDecl.html
+    // https://clang.llvm.org/doxygen/classclang_1_1ParmVarDecl.html
 
-        // https://clang.llvm.org/doxygen/classclang_1_1ParmVarDecl.html
-        llvm::outs() << "  params: ";
-        for (auto &p : cxxMethodDecl->parameters()) {
-          llvm::outs() << p->getOriginalType().getAsString() << " : ";
-        }
-        llvm::outs() << "\n";
-      }
+    if (!cxxMethodDecl->hasAttr<AnnotateAttr>()) {
+      return;
+    }
 
-      {
-        // https://clang.llvm.org/doxygen/classclang_1_1CXXRecordDecl.html
-        auto *cxxRecordDecl = Result.Nodes.getNodeAs<CXXRecordDecl>("decl");
+    AnnotateAttr *attr = cxxMethodDecl->getAttr<AnnotateAttr>();
+    auto annotation = attr->getAnnotation();
+    if (!annotation.startswith("AP_RPC")) {
+      return;
+    }
 
-        if (cxxRecordDecl && cxxRecordDecl->getBeginLoc().isValid()) {
-          llvm::outs() << "  cxxRecordDecl: "
-                       << cxxRecordDecl->getNameAsString() << "\n";
-          //for (auto & attr : cxxRecordDecl->getAttrs()) {
-          //    attr->get
-          //}
-        }
+    llvm::outs() << "Method: \n";
+    llvm::outs() << "  Fully Qualified Name: "
+                 << cxxMethodDecl->getQualifiedNameAsString() << "\n";
+    llvm::outs() << "  Short Name: " << cxxMethodDecl->getDeclName() << "\n";
+    llvm::outs() << "  Annotation: " << annotation << "\n";
+    llvm::outs() << "  Parameters as in Argument List: "
+                 << "\n";
+    if (cxxMethodDecl->parameters().empty()) {
+      llvm::outs() << "    <no parameters>\n";
+    } else {
+      for (auto &p : cxxMethodDecl->parameters()) {
+        llvm::outs() << "    Name: " << p->getNameAsString() << "\n ";
+        llvm::outs() << "      Fully Qualified Type Name: "
+                     << p->getOriginalType().getAsString() << "\n";
       }
     }
   }
@@ -115,6 +141,21 @@ public:
   }
   void onEndOfTranslationUnit() override {
     Context.reportResult("END", "End of TU.");
+  }
+  bool VisitNamedDevl_Attrs(const NamedDecl *v,
+                            clang::SourceManager *sourcemanager) {
+    v->dump();
+    if (v->hasAttrs()) {
+      clang::AttrVec vec = v->getAttrs();
+      printf("getSpelling: %s\n", vec[0]->getSpelling());
+      printf("getSourceText: %s\n",
+             Lexer::getSourceText(
+                 CharSourceRange::getTokenRange(vec[0]->getRange()),
+                 *sourcemanager, LangOptions())
+                 .str()
+                 .c_str());
+    }
+    return true;
   }
 
 private:
@@ -150,7 +191,7 @@ int main(int argc, const char **argv) {
   //    &Callback);
 
   // Finder.addMatcher(cxxRecordDecl().bind("decl"), &Callback);
-  Finder.addMatcher(cxxRecordDecl(decl().bind("decl"), hasAttr(attr::Annotate)),
+  Finder.addMatcher(cxxMethodDecl(decl().bind("decl"), hasAttr(attr::Annotate)),
                     &Callback);
 
   auto Err = Executor->get()->execute(newFrontendActionFactory(&Finder));

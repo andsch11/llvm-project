@@ -1,13 +1,27 @@
 #pragma once
+
+#include "demo_types.hpp"
 // Runlevel
 // A Runlevel is defined as a set of services (IService), which can be started.
 // For more details see \file:readme.md
 
-namespace B {
-struct __attribute__((annotate("RPC_STRUCT(16)"))) A {
-  bool struct_bool;
+#define AP_RPC(_some_args_) __attribute__((annotate(_some_args_)))
+
+#define FUNCTION(...)                                                          \
+  __attribute__((annotate("reflect-function;" #__VA_ARGS__)))
+
+namespace frem {
+
+struct Code {
+  constexpr Code(unsigned){};
 };
-} // namespace B
+struct Alias {
+  const char *alias;
+};
+// static constexpr ::frem::Alias<generatedVarName>("Foo");
+} // namespace frem
+
+
 
 namespace Runlevel {
 class Manager {
@@ -17,10 +31,16 @@ public:
   Manager(const Manager &other) = delete;
   Manager &operator=(const Manager &other) = delete;
 
+  AP_RPC("AP_RPC(Code(0x11001100), "
+         "Alias(InstrumentAPI_Motor_test_1))")
   bool demo1();
 
-  int demo2(bool &demo2param);
+  __attribute__((annotate("AP_RPC"
+                          "Code(0x11001101)"
+                          "Alias(InstrumentAPI_Motor_test2)"))) int
+  demo2(B::A &demo2param);
 
+  static constexpr ::frem::Code demo3_code{123};
   void demo3(B::A &demo3param);
 };
 
