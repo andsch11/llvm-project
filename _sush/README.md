@@ -1,5 +1,9 @@
 # llvm based parser
 
+TODO
+- walk from pointer to struct to struct see:"AP_REFERENCE_TYPE"
+- 
+
 ## Readings / Information
 
 - Official Docs : getting started with VS

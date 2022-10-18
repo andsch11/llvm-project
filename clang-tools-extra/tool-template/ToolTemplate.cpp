@@ -86,6 +86,34 @@ public:
         cxxRecordDecl && cxxRecordDecl->getBeginLoc().isValid()) {
       visitStructOrClass(cxxRecordDecl);
     }
+
+    if (auto *varDecl = Result.Nodes.getNodeAs<VarDecl>("decl");
+        varDecl && varDecl->getBeginLoc().isValid()) {
+      visitStructOrClass_referenced_type_test(varDecl);
+    }
+  }
+
+  void visitStructOrClass_referenced_type_test(const clang::VarDecl *varDecl) {
+    // https://clang.llvm.org/doxygen/classclang_1_1CXXRecordDecl.html
+    // https://clang.llvm.org/doxygen/classclang_1_1ParmVarDecl.html
+
+    if (!varDecl->hasAttr<AnnotateAttr>()) {
+      return;
+    }
+
+    AnnotateAttr *attr = varDecl->getAttr<AnnotateAttr>();
+    auto annotation = attr->getAnnotation();
+    if (!annotation.startswith("AP_REFERENCE_TYPE")) {
+      return;
+    }
+
+    llvm::outs() << "AP_REFERENCE_TYPE: \n";
+    llvm::outs() << "  <VarDecl> \n";
+
+    if (varDecl->getType()->isAggregateType()) {
+      _visitCxxRecordDecl(varDecl->getType()->getAsCXXRecordDecl(), annotation);
+    }
+
   }
 
   void visitStructOrClass(const clang::CXXRecordDecl *cxxRecordDecl) {
@@ -102,7 +130,14 @@ public:
       return;
     }
 
-    llvm::outs() << "Struct/Class: \n";
+    llvm::outs() << "AP_TYPE: \n";
+    _visitCxxRecordDecl(cxxRecordDecl, annotation);
+  }
+
+  void _visitCxxRecordDecl(const clang::CXXRecordDecl *cxxRecordDecl,
+                           llvm::StringRef annotation) {
+
+    llvm::outs() << "  <CXXRecordDecl> \n";
     llvm::outs() << "  Fully Qualified Name: "
                  << cxxRecordDecl->getQualifiedNameAsString() << "\n";
     llvm::outs() << "  Short Name: " << cxxRecordDecl->getDeclName() << "\n";
@@ -138,7 +173,8 @@ public:
       return;
     }
 
-    llvm::outs() << "Method: \n";
+    llvm::outs() << "AP_RPC: \n";
+    llvm::outs() << "  <CXXMethodDecl> \n";
     llvm::outs() << "  Fully Qualified Name: "
                  << cxxMethodDecl->getQualifiedNameAsString() << "\n";
     llvm::outs() << "  Short Name: " << cxxMethodDecl->getDeclName() << "\n";
@@ -219,6 +255,8 @@ int main(int argc, const char **argv) {
   Finder.addMatcher(cxxMethodDecl(decl().bind("decl"), hasAttr(attr::Annotate)),
                     &Callback);
   Finder.addMatcher(cxxRecordDecl(decl().bind("decl"), hasAttr(attr::Annotate)),
+                    &Callback);
+  Finder.addMatcher(varDecl(decl().bind("decl"), hasAttr(attr::Annotate)),
                     &Callback);
 
   auto Err = Executor->get()->execute(newFrontendActionFactory(&Finder));
