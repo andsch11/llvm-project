@@ -65,48 +65,68 @@ public:
   ToolTemplateCallback(ExecutionContext &Context) : Context(Context) {}
 
   void run(const MatchFinder::MatchResult &Result) override {
+
+    m_SourceManager = Result.SourceManager;
+    // auto *namedDecl = Result.Nodes.getNodeAs<NamedDecl>("decl");
+    // assert(namedDecl);
+
+    //        << m_SourceManager->getFilename(namedDecl->getLocation()).str();
+
     // TODO: This routine will get called for each thing that the matchers
     // find.
     // At this point, you can examine the match, and do whatever you want,
     // including replacing the matched text with other text
 
-    // llvm::outs() << "----------------------\n";
-    {
-        // auto *namedDecl = Result.Nodes.getNodeAs<NamedDecl>("decl");
+    if (auto *cxxMethodDecl = Result.Nodes.getNodeAs<CXXMethodDecl>("decl");
+        cxxMethodDecl && cxxMethodDecl->getBeginLoc().isValid()) {
+      visitMethod(cxxMethodDecl);
+    }
 
-        // if (namedDecl && namedDecl->getBeginLoc().isValid()) {
-        //  llvm::outs() << "namedDecl QN:" <<
-        //  namedDecl->getQualifiedNameAsString()
-        //               << " DN:" << namedDecl->getDeclName()
-        //               << " ID:" << namedDecl->getIdentifier()
-        //               << " NA:" << namedDecl->getNameAsString() << "\n";
-        //  VisitNamedDevl_Attrs(namedDecl, Result.SourceManager);
-        //}
-    } {
+    if (auto *cxxRecordDecl = Result.Nodes.getNodeAs<CXXRecordDecl>("decl");
+        cxxRecordDecl && cxxRecordDecl->getBeginLoc().isValid()) {
+      visitStructOrClass(cxxRecordDecl);
+    }
+  }
 
-      if (auto *cxxMethodDecl = Result.Nodes.getNodeAs<CXXMethodDecl>("decl");
-          cxxMethodDecl && cxxMethodDecl->getBeginLoc().isValid()) {
-        visitMethod(cxxMethodDecl);
+  void visitStructOrClass(const clang::CXXRecordDecl *cxxRecordDecl) {
+    // https://clang.llvm.org/doxygen/classclang_1_1CXXRecordDecl.html
+    // https://clang.llvm.org/doxygen/classclang_1_1ParmVarDecl.html
+
+    if (!cxxRecordDecl->hasAttr<AnnotateAttr>()) {
+      return;
+    }
+
+    AnnotateAttr *attr = cxxRecordDecl->getAttr<AnnotateAttr>();
+    auto annotation = attr->getAnnotation();
+    if (!annotation.startswith("AP_TYPE")) {
+      return;
+    }
+
+    llvm::outs() << "Struct/Class: \n";
+    llvm::outs() << "  Fully Qualified Name: "
+                 << cxxRecordDecl->getQualifiedNameAsString() << "\n";
+    llvm::outs() << "  Short Name: " << cxxRecordDecl->getDeclName() << "\n";
+    llvm::outs() << "  Annotation: " << annotation << "\n";
+    llvm::outs()
+        << "  Filename: "
+        << m_SourceManager->getFilename(cxxRecordDecl->getLocation()).str()
+        << "\n";
+    llvm::outs() << "  Fields: "
+                 << "\n";
+
+    if (cxxRecordDecl->fields().empty()) {
+      llvm::outs() << "    <no fields>\n";
+    } else {
+      for (const auto &p : cxxRecordDecl->fields()) {
+        llvm::outs() << "    Name: " << p->getNameAsString() << "\n ";
+        llvm::outs() << "      Fully Qualified Type Name: "
+                     << p->getType().getAsString() << "\n";
       }
-
-      //{
-      //  // https://clang.llvm.org/doxygen/classclang_1_1CXXRecordDecl.html
-      //  auto *cxxRecordDecl = Result.Nodes.getNodeAs<CXXRecordDecl>("decl");
-
-      //  if (cxxRecordDecl && cxxRecordDecl->getBeginLoc().isValid()) {
-      //    llvm::outs() << "  cxxRecordDecl: "
-      //                 << cxxRecordDecl->getNameAsString() << "\n";
-      //    // for (auto & attr : cxxRecordDecl->getAttrs()) {
-      //    //    attr->get
-      //    //}
-      //  }
-      //}
     }
   }
 
   void visitMethod(const clang::CXXMethodDecl *cxxMethodDecl) {
     // https://clang.llvm.org/doxygen/classclang_1_1CXXMethodDecl.html
-    // https://clang.llvm.org/doxygen/classclang_1_1ParmVarDecl.html
 
     if (!cxxMethodDecl->hasAttr<AnnotateAttr>()) {
       return;
@@ -123,12 +143,16 @@ public:
                  << cxxMethodDecl->getQualifiedNameAsString() << "\n";
     llvm::outs() << "  Short Name: " << cxxMethodDecl->getDeclName() << "\n";
     llvm::outs() << "  Annotation: " << annotation << "\n";
+    llvm::outs()
+        << "  Filename: "
+        << m_SourceManager->getFilename(cxxMethodDecl->getLocation()).str()
+        << "\n";
     llvm::outs() << "  Parameters as in Argument List: "
                  << "\n";
     if (cxxMethodDecl->parameters().empty()) {
       llvm::outs() << "    <no parameters>\n";
     } else {
-      for (auto &p : cxxMethodDecl->parameters()) {
+      for (const auto &p : cxxMethodDecl->parameters()) {
         llvm::outs() << "    Name: " << p->getNameAsString() << "\n ";
         llvm::outs() << "      Fully Qualified Type Name: "
                      << p->getOriginalType().getAsString() << "\n";
@@ -142,24 +166,25 @@ public:
   void onEndOfTranslationUnit() override {
     Context.reportResult("END", "End of TU.");
   }
-  bool VisitNamedDevl_Attrs(const NamedDecl *v,
-                            clang::SourceManager *sourcemanager) {
-    v->dump();
-    if (v->hasAttrs()) {
-      clang::AttrVec vec = v->getAttrs();
-      printf("getSpelling: %s\n", vec[0]->getSpelling());
-      printf("getSourceText: %s\n",
-             Lexer::getSourceText(
-                 CharSourceRange::getTokenRange(vec[0]->getRange()),
-                 *sourcemanager, LangOptions())
-                 .str()
-                 .c_str());
-    }
-    return true;
-  }
+  // bool VisitNamedDevl_Attrs(const NamedDecl *v,
+  //                          clang::SourceManager *sourcemanager) {
+  //  v->dump();
+  //  if (v->hasAttrs()) {
+  //    clang::AttrVec vec = v->getAttrs();
+  //    printf("getSpelling: %s\n", vec[0]->getSpelling());
+  //    printf("getSourceText: %s\n",
+  //           Lexer::getSourceText(
+  //               CharSourceRange::getTokenRange(vec[0]->getRange()),
+  //               *sourcemanager, LangOptions())
+  //               .str()
+  //               .c_str());
+  //  }
+  //  return true;
+  //}
 
 private:
   ExecutionContext &Context;
+  clang::SourceManager *m_SourceManager{nullptr};
 };
 } // end anonymous namespace
 
@@ -192,6 +217,8 @@ int main(int argc, const char **argv) {
 
   // Finder.addMatcher(cxxRecordDecl().bind("decl"), &Callback);
   Finder.addMatcher(cxxMethodDecl(decl().bind("decl"), hasAttr(attr::Annotate)),
+                    &Callback);
+  Finder.addMatcher(cxxRecordDecl(decl().bind("decl"), hasAttr(attr::Annotate)),
                     &Callback);
 
   auto Err = Executor->get()->execute(newFrontendActionFactory(&Finder));

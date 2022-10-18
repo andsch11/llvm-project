@@ -1,14 +1,13 @@
 #pragma once
 
+#include "annotations.hpp"
 #include "demo_types.hpp"
 // Runlevel
 // A Runlevel is defined as a set of services (IService), which can be started.
 // For more details see \file:readme.md
 
-#define AP_RPC(_some_args_) __attribute__((annotate(_some_args_)))
 
-#define FUNCTION(...)                                                          \
-  __attribute__((annotate("reflect-function;" #__VA_ARGS__)))
+
 
 namespace frem {
 
